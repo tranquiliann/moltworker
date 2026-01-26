@@ -283,17 +283,36 @@ export default {
       }
     }
 
-    // Debug endpoint - list all processes
+    // Debug endpoint - list all processes with optional logs
+    // Use ?logs=true to include logs for each process
     if (url.pathname === '/processes') {
       try {
         const processes = await sandbox.listProcesses();
-        return Response.json({
-          count: processes.length,
-          processes: processes.map(p => ({
+        const includeLogs = url.searchParams.get('logs') === 'true';
+        
+        const processData = await Promise.all(processes.map(async p => {
+          const data: Record<string, unknown> = {
             id: p.id,
             command: p.command,
             status: p.status,
-          })),
+          };
+          
+          if (includeLogs) {
+            try {
+              const logs = await p.getLogs();
+              data.stdout = logs.stdout || '';
+              data.stderr = logs.stderr || '';
+            } catch {
+              data.logs_error = 'Failed to retrieve logs';
+            }
+          }
+          
+          return data;
+        }));
+        
+        return Response.json({
+          count: processes.length,
+          processes: processData,
         });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -302,16 +321,35 @@ export default {
     }
 
     // Logs endpoint - returns container logs for debugging
+    // Use ?id=proc_xxx to get logs for a specific process
     if (url.pathname === '/logs') {
       try {
-        const process = await findExistingClawdbotProcess(sandbox);
-        if (!process) {
-          return Response.json({
-            status: 'no_process',
-            message: 'No Clawdbot process is currently running',
-            stdout: '',
-            stderr: '',
-          });
+        const processId = url.searchParams.get('id');
+        let process;
+        
+        if (processId) {
+          // Find specific process by ID
+          const processes = await sandbox.listProcesses();
+          process = processes.find(p => p.id === processId);
+          if (!process) {
+            return Response.json({
+              status: 'not_found',
+              message: `Process ${processId} not found`,
+              stdout: '',
+              stderr: '',
+            }, { status: 404 });
+          }
+        } else {
+          // Find running clawdbot process
+          process = await findExistingClawdbotProcess(sandbox);
+          if (!process) {
+            return Response.json({
+              status: 'no_process',
+              message: 'No Clawdbot process is currently running',
+              stdout: '',
+              stderr: '',
+            });
+          }
         }
 
         const logs = await process.getLogs();
