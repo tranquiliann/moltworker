@@ -82,6 +82,12 @@
   margin: 0;
 }
 
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 /* Gateway section */
 .gateway-section {
   border-left: 3px solid var(--primary-color);

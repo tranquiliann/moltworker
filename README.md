@@ -49,21 +49,28 @@ wss://your-worker.workers.dev/ws?token=YOUR_TOKEN
 
 For local development only, set `CLAWDBOT_DEV_MODE=true` in `.dev.vars` to enable `allowInsecureAuth`, which bypasses device pairing entirely.
 
-## Cloudflare Access (Authentication)
+## Setting Up the Admin UI
 
-The admin UI (`/_admin/`), API routes (`/api/*`), and debug routes (`/debug/*`) are protected by Cloudflare Access. To enable authentication:
+To use the admin UI at `/_admin/` for device management, you need to:
+1. Enable Cloudflare Access on your worker
+2. Set the Access secrets so the worker can validate JWTs
 
-### 1. Create a Cloudflare Access Application
+### 1. Enable Cloudflare Access on workers.dev
 
-1. Go to [Cloudflare Zero Trust Dashboard](https://one.dash.cloudflare.com/)
-2. Navigate to **Access** > **Applications**
-3. Create a new **Self-hosted** application
-4. Set the application domain to your Worker URL (e.g., `clawdbot-sandbox.your-subdomain.workers.dev`)
-5. Add paths to protect: `/_admin/*`, `/api/*`, `/debug/*`
-6. Configure your desired identity providers (e.g., email OTP, Google, GitHub)
-7. Copy the **Application Audience (AUD)** tag from the application settings
+The easiest way to protect your worker is using the built-in Cloudflare Access integration for workers.dev:
 
-### 2. Set Secrets
+1. Go to the [Workers & Pages dashboard](https://dash.cloudflare.com/?to=/:account/workers-and-pages)
+2. Select your Worker (e.g., `clawdbot-sandbox`)
+3. Go to **Settings** > **Domains & Routes**
+4. For `workers.dev`, click **Enable Cloudflare Access**
+5. Click **Manage Cloudflare Access** to configure who can access:
+   - Add your email address to the allow list
+   - Or configure other identity providers (Google, GitHub, etc.)
+6. Note the **Application Audience (AUD)** tag from the Access application settings
+
+### 2. Set Access Secrets
+
+After enabling Cloudflare Access, set the secrets so the worker can validate JWTs:
 
 ```bash
 # Your Cloudflare Access team domain (e.g., "myteam.cloudflareaccess.com")
@@ -72,6 +79,28 @@ npx wrangler secret put CF_ACCESS_TEAM_DOMAIN
 # The Application Audience (AUD) tag from your Access application
 npx wrangler secret put CF_ACCESS_AUD
 ```
+
+You can find your team domain in the [Zero Trust Dashboard](https://one.dash.cloudflare.com/) under **Settings** > **Custom Pages** (it's the subdomain before `.cloudflareaccess.com`).
+
+### 3. Redeploy
+
+```bash
+npm run deploy
+```
+
+Now visit `/_admin/` and you'll be prompted to authenticate via Cloudflare Access before accessing the admin UI.
+
+### Alternative: Manual Access Application
+
+If you prefer more control, you can manually create an Access application:
+
+1. Go to [Cloudflare Zero Trust Dashboard](https://one.dash.cloudflare.com/)
+2. Navigate to **Access** > **Applications**
+3. Create a new **Self-hosted** application
+4. Set the application domain to your Worker URL (e.g., `clawdbot-sandbox.your-subdomain.workers.dev`)
+5. Add paths to protect: `/_admin/*`, `/api/*`, `/debug/*`
+6. Configure your desired identity providers (e.g., email OTP, Google, GitHub)
+7. Copy the **Application Audience (AUD)** tag and set the secrets as shown above
 
 ### Local Development
 
@@ -163,10 +192,10 @@ npm run deploy
 | Secret | Required | Description |
 |--------|----------|-------------|
 | `ANTHROPIC_API_KEY` | Yes | Your Anthropic API key |
+| `CF_ACCESS_TEAM_DOMAIN` | Yes* | Cloudflare Access team domain (required for admin UI) |
+| `CF_ACCESS_AUD` | Yes* | Cloudflare Access application audience (required for admin UI) |
 | `CLAWDBOT_GATEWAY_TOKEN` | No | Gateway token for authentication (pass via `?token=` query param) |
 | `CLAWDBOT_DEV_MODE` | No | Set to `true` to enable `allowInsecureAuth` (local dev only) |
-| `CF_ACCESS_TEAM_DOMAIN` | Recommended | Cloudflare Access team domain |
-| `CF_ACCESS_AUD` | Recommended | Cloudflare Access application audience |
 | `AWS_ACCESS_KEY_ID` | No | R2 access key for persistent storage |
 | `AWS_SECRET_ACCESS_KEY` | No | R2 secret key for persistent storage |
 | `CF_ACCOUNT_ID` | No | Cloudflare account ID for R2 |

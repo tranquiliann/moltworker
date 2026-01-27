@@ -44,9 +44,6 @@ export default function DevicesPage() {
 
   useEffect(() => {
     fetchDevices()
-    // Poll every 10 seconds for new pairing requests
-    const interval = setInterval(fetchDevices, 10000)
-    return () => clearInterval(interval)
   }, [fetchDevices])
 
   const handleApprove = async (requestId: string) => {
@@ -160,15 +157,20 @@ export default function DevicesPage() {
           <section className="devices-section">
         <div className="section-header">
           <h2>Pending Pairing Requests</h2>
-          {pending.length > 0 && (
-            <button
-              className="btn btn-primary"
-              onClick={handleApproveAll}
-              disabled={actionInProgress !== null}
-            >
-              {actionInProgress === 'all' ? 'Approving...' : `Approve All (${pending.length})`}
+          <div className="header-actions">
+            {pending.length > 0 && (
+              <button
+                className="btn btn-primary"
+                onClick={handleApproveAll}
+                disabled={actionInProgress !== null}
+              >
+                {actionInProgress === 'all' ? 'Approving...' : `Approve All (${pending.length})`}
+              </button>
+            )}
+            <button className="btn btn-secondary" onClick={fetchDevices} disabled={loading}>
+              Refresh
             </button>
-          )}
+          </div>
         </div>
 
         {pending.length === 0 ? (
@@ -244,9 +246,6 @@ export default function DevicesPage() {
       <section className="devices-section">
         <div className="section-header">
           <h2>Paired Devices</h2>
-          <button className="btn btn-secondary" onClick={fetchDevices}>
-            Refresh
-          </button>
         </div>
 
         {paired.length === 0 ? (
