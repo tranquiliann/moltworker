@@ -47,26 +47,35 @@ if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ] && [ -n "$R2_A
     else
         echo "Mounting R2 bucket to $R2_MOUNT_PATH..."
         # tigrisfs args: --endpoint <url> <bucket> <mountpoint>
-        # Runs in background (daemonizes by default, we don't use -f foreground flag)
-        /usr/local/bin/tigrisfs --endpoint "$R2_ENDPOINT" "$R2_BUCKET_NAME" "$R2_MOUNT_PATH" &
+        # Use -f (foreground) and & to keep it running in background within this process tree
+        # Also add --debug for troubleshooting
+        /usr/local/bin/tigrisfs --endpoint "$R2_ENDPOINT" --debug -f "$R2_BUCKET_NAME" "$R2_MOUNT_PATH" 2>&1 | while read line; do echo "[tigrisfs] $line"; done &
+        TIGRISFS_PID=$!
+        echo "Started tigrisfs with PID $TIGRISFS_PID"
         
         # Wait for mount to be ready
-        for i in {1..10}; do
-            if mount | grep -q "tigrisfs on $R2_MOUNT_PATH"; then
+        for i in {1..15}; do
+            if mount | grep -q "$R2_MOUNT_PATH"; then
                 echo "R2 bucket mounted successfully"
                 break
             fi
-            echo "Waiting for mount... ($i/10)"
+            echo "Waiting for mount... ($i/15)"
             sleep 1
         done
         
-        if ! mount | grep -q "tigrisfs on $R2_MOUNT_PATH"; then
+        # Check mount status
+        echo "Mount status:"
+        mount | grep -E "(fuse|$R2_MOUNT_PATH)" || echo "No FUSE mounts found"
+        
+        if ! mount | grep -q "$R2_MOUNT_PATH"; then
             echo "WARNING: Failed to mount R2 bucket, continuing without persistence"
+            echo "Check if tigrisfs process is running:"
+            ps aux | grep tigrisfs || echo "tigrisfs not running"
         fi
     fi
     
     # If R2 is mounted, use it for clawdbot config
-    if mount | grep -q "tigrisfs on $R2_MOUNT_PATH"; then
+    if mount | grep -q "$R2_MOUNT_PATH"; then
         echo "Contents of R2 mount:"
         ls -la "$R2_MOUNT_PATH" 2>/dev/null || echo "(empty or not accessible)"
         
